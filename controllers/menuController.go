@@ -58,7 +58,7 @@ func CreateMenu() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var menu models.Menu
 		c, cancel := context.WithTimeout(context.Background(), 100*time.Second)
-
+		defer cancel()
 		err := ctx.BindJSON(&menu)
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -98,7 +98,7 @@ func UpdateMenu() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		c, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 		var menu models.Menu
-
+		defer cancel()
 		err := ctx.BindJSON(&menu)
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -117,18 +117,18 @@ func UpdateMenu() gin.HandlerFunc {
 				defer cancel()
 				return
 			}
-			updateObj = append(updateObj, bson.E{"start_date", menu.Start_Date})
-			updateObj = append(updateObj, bson.E{"end_date", menu.End_Date})
+			updateObj = append(updateObj, bson.E{Key: "start_date", Value: menu.Start_Date})
+			updateObj = append(updateObj, bson.E{Key: "end_date", Value: menu.End_Date})
 
 			if menu.Name != "" {
-				updateObj = append(updateObj, bson.E{"name", menu.Name})
+				updateObj = append(updateObj, bson.E{Key: "name", Value: menu.Name})
 			}
 			if menu.Category != "" {
-				updateObj = append(updateObj, bson.E{"category", menu.Category})
+				updateObj = append(updateObj, bson.E{Key: "category", Value: menu.Category})
 			}
 
 			menu.Created_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
-			updateObj = append(updateObj, bson.E{"crated_at", menu.Created_at})
+			updateObj = append(updateObj, bson.E{Key: "crated_at", Value: menu.Created_at})
 
 			upsert := true
 
@@ -139,7 +139,7 @@ func UpdateMenu() gin.HandlerFunc {
 				c,
 				filter,
 				bson.D{
-					{"$set", updateObj},
+					{Key: "$set", Value: updateObj},
 				},
 				&opt,
 			)

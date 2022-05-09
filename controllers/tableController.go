@@ -22,6 +22,7 @@ func GetTables() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		c, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 		result, err := tableCollection.Find(context.TODO(), bson.M{})
+		defer cancel()
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, bson.M{"error": "error while listening tables"})
 			return
@@ -78,7 +79,7 @@ func CreateTable() gin.HandlerFunc {
 func UpdateTable() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		c, cancel := context.WithTimeout(context.Background(), 100*time.Second)
-
+		defer cancel()
 		var table models.Table
 
 		err := ctx.BindJSON(&table)

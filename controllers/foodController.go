@@ -40,12 +40,12 @@ func GetFoods() gin.HandlerFunc {
 		groupStage := bson.D{{"$group", bson.D{{"_id", bson.D{{"_id", "null"}}}, {"total_count", bson.D{{"$sum", 1}}}, {"data", bson.D{{"$push", "$$ROOT"}}}}}}
 		projectStage := bson.D{
 			{
-				"$project", bson.D{
+				Key: "$project", Value: bson.D{
 					// 0 means dont send this feild to frontEnd and 1 means send to frontend
-					{"_id", 0},
-					{"total_count", 1},
+					{Key: "_id", Value: 0},
+					{Key: "total_count", Value: 1},
 					// $slice => specifies the number of elements to return to array fields by using startIndex and End index
-					{"food_items", bson.D{{"$slice", []interface{}{"$data", startIndex, recordPerPage}}}}}}}
+					{Key: "food_items", Value: bson.D{{Key: "$slice", Value: []interface{}{"$data", startIndex, recordPerPage}}}}}}}
 		result, err := foodCollection.Aggregate(c, mongo.Pipeline{matchStage, groupStage, projectStage})
 		defer cancel()
 		if err != nil {
@@ -80,6 +80,7 @@ func CreateFood() gin.HandlerFunc {
 		c, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 		var food models.Food
 		var menu models.Menu
+		defer cancel()
 		// Get the request body into struct Food
 		err := ctx.BindJSON(&food)
 		if err != nil {
@@ -128,6 +129,7 @@ func CreateFood() gin.HandlerFunc {
 func UpdateFood() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var c, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
 		var menu models.Menu
 		var food models.Food
 

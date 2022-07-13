@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: go-restro
+  name: go-restro
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: go-restro
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: go-restro
+    spec:
+      containers:
+      - image: go-restro:latest
+        name: go-restro
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8000
+        env:
+        - name: MY-PORT
+          value: "8000"

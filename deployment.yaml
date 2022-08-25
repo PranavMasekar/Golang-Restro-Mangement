@@ -15,11 +15,15 @@ spec:
         app.kubernetes.io/name: go-restro
     spec:
       containers:
-      - image: go-restro:latest
-        name: go-restro
-        imagePullPolicy: Never
-        ports:
-        - containerPort: 8000
-        env:
-        - name: MY-PORT
-          value: "8000"
+        - ports:
+            - containerPort: 8000
+          resources:
+            limits: {}
+            requests: {}
+          env:
+            - name: MY-PORT
+              value: "8000"
+          volumeMounts: []
+          image: go-restro:latest
+          name: go-restro
+          imagePullPolicy: Never

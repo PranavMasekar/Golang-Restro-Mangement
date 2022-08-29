@@ -20,6 +20,8 @@ pipeline {
         stage("HEROKU DEPLOYMENT"){
             steps {
                 echo 'DEPLOYING SERVER'
+                sh 'git add .'
+                sh 'git commit -m "testing commit"'
                 sh 'git push heroku master'
             }
         }

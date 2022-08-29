@@ -23,6 +23,7 @@ pipeline {
                 sh 'git config --global user.email "pranavmasekar4@gmail.com"'
                 sh 'git config --global user.name "pranav"'
                 sh 'git checkout master'
+                sh 'heroku git:remote -a pranav-go-restaurant'
                 sh 'git push heroku master'
             }
         }

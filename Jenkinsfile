@@ -22,8 +22,6 @@ pipeline {
                 echo 'DEPLOYING SERVER'
                 sh 'git config --global user.email "pranavmasekar4@gmail.com"'
                 sh 'git config --global user.name "pranav"'
-                sh 'git add .'
-                sh 'git commit -m "testing commit"'
                 sh 'git push heroku master'
             }
         }

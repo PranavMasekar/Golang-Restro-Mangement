@@ -1,7 +1,7 @@
-version: 2.1
 orbs:
-  heroku: circleci/heroku@1.2.6
   docker: circleci/docker@1.5.0
+  heroku: circleci/heroku@1.2.6
+version: 2.1
 executors:
   docker-publisher: 
     environment:

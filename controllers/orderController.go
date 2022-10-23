@@ -46,7 +46,25 @@ func GetOrder() gin.HandlerFunc {
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "errror occured while fetching Order"})
 		}
-		ctx.JSON(http.StatusOK, order)
+		var orderResponse models.OrderResponse
+
+		orderResponse.ID = order.ID
+		orderResponse.Order_id = order.Order_id
+
+		var totalAmount float64
+		for _, foodId := range order.Food_Items {
+			var food models.Food
+			err := foodCollection.FindOne(c, bson.M{"food_id": foodId}).Decode(&food)
+			defer cancel()
+			if err != nil {
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "errror occured while fetching food item"})
+				return
+			}
+			totalAmount += *food.Price
+			orderResponse.Food_Items = append(orderResponse.Food_Items, food)
+		}
+		orderResponse.Amount = totalAmount
+		ctx.JSON(http.StatusOK, orderResponse)
 	}
 }
 func CreateOrder() gin.HandlerFunc {
@@ -54,10 +72,24 @@ func CreateOrder() gin.HandlerFunc {
 		c, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
 
+		// Checking request is from Manager
+		userId := ctx.Param("user_id")
+		var user models.User
+		err := userCollection.FindOne(c, bson.M{"user_id": userId}).Decode(&user)
+		defer cancel()
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if *user.Type != "MANAGER" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Not Authorized"})
+			return
+		}
+
 		var order models.Order
 		var table models.Table
 
-		err := ctx.BindJSON(&order)
+		err = ctx.BindJSON(&order)
 
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -103,6 +135,22 @@ func UpdateOrder() gin.HandlerFunc {
 		var table models.Table
 		var order models.Order
 		var c, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		// Checking request is from Manager
+		userId := ctx.Param("user_id")
+		var user models.User
+		err := userCollection.FindOne(c, bson.M{"user_id": userId}).Decode(&user)
+		defer cancel()
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if *user.Type != "MANAGER" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Not Authorized"})
+			return
+		}
+
 		var updateObj primitive.D
 
 		orderId := ctx.Param("order_id")
@@ -120,11 +168,11 @@ func UpdateOrder() gin.HandlerFunc {
 				ctx.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 				return
 			}
-			updateObj = append(updateObj, bson.E{"menu", order.Table_id})
+			updateObj = append(updateObj, bson.E{Key: "menu", Value: order.Table_id})
 		}
 
 		order.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
-		updateObj = append(updateObj, bson.E{"updated_at", order.Updated_at})
+		updateObj = append(updateObj, bson.E{Key: "updated_at", Value: order.Updated_at})
 
 		upsert := true
 		filter := bson.M{"order_id": orderId}
@@ -137,7 +185,7 @@ func UpdateOrder() gin.HandlerFunc {
 			c,
 			filter,
 			bson.D{
-				{"$set", updateObj},
+				{Key: "$set", Value: updateObj},
 			},
 			&opt,
 		)
@@ -148,6 +196,38 @@ func UpdateOrder() gin.HandlerFunc {
 		}
 
 		ctx.JSON(http.StatusOK, result)
+	}
+}
+
+func DeleteOrder() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		var c, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		// Checking request is from Manager
+		userId := ctx.Param("user_id")
+		var user models.User
+		err := userCollection.FindOne(c, bson.M{"user_id": userId}).Decode(&user)
+		defer cancel()
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if *user.Type != "MANAGER" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Not Authorized"})
+			return
+		}
+
+		orderId := ctx.Param("order_id")
+
+		res, err := orderCollection.DeleteOne(c, bson.M{"order_id": orderId})
+
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		} else {
+			ctx.JSON(http.StatusOK, res)
+		}
 	}
 }
 

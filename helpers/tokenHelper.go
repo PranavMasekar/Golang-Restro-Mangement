@@ -42,7 +42,7 @@ func GenerateAllTokens(email string, firstName string, lastName string, userId s
 	// Creating Refresh Token claims
 	refreshClaims := &SignedDetails{
 		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Local().Add(time.Hour * time.Duration(168)).Unix(),
+			ExpiresAt: time.Now().Local().Add(time.Hour * time.Duration(200)).Unix(),
 		},
 	}
 

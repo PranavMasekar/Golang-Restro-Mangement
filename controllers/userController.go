@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -37,8 +36,8 @@ func GetUsers() gin.HandlerFunc {
 		startIndex := (page - 1) * recordPerPage
 		startIndex, err = strconv.Atoi(ctx.Query("startIndex"))
 
-		matchStage := bson.D{{"$match", bson.D{{}}}}
-		projectStage := bson.D{{"$project", bson.D{{"_id", 0}, {"total_count", 1}, {"user_items", bson.D{{"$slice", []interface{}{"$data", startIndex, recordPerPage}}}}}}}
+		matchStage := bson.D{{Key: "$match", Value: bson.D{{}}}}
+		projectStage := bson.D{{Key: "$project", Value: bson.D{{Key: "_id", Value: 0}, {Key: "total_count", Value: 1}, {Key: "user_items", Value: bson.D{{Key: "$slice", Value: []interface{}{"$data", startIndex, recordPerPage}}}}}}}
 
 		result, err := userCollection.Aggregate(c, mongo.Pipeline{matchStage, projectStage})
 
@@ -125,7 +124,7 @@ func SignUp() gin.HandlerFunc {
 		resultInsertionNumber, insertedError := userCollection.InsertOne(c, user)
 
 		if insertedError != nil {
-			msg := fmt.Sprintf("user item was not created")
+			msg := "user item was not created"
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 		}
 		defer cancel()
@@ -194,7 +193,7 @@ func VerifyPassword(userPassword string, providedPassword string) (bool, string)
 	msg := ""
 
 	if err != nil {
-		msg = fmt.Sprintf("email of password is incorrect")
+		msg = "email of password is incorrect"
 		check = false
 	}
 	return check, msg

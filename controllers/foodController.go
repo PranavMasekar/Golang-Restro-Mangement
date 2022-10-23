@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"math"
 	"net/http"
@@ -35,13 +34,13 @@ func GetFoods() gin.HandlerFunc {
 		}
 		startIndex := (page - 1) * recordPerPage
 		startIndex, err = strconv.Atoi(ctx.Query("startIndex"))
-		matchStage := bson.D{{"$match", bson.D{{}}}}
+		matchStage := bson.D{{Key: "$match", Value: bson.D{{}}}}
 		// The members which are added in group stage are inserted in data field
-		groupStage := bson.D{{"$group", bson.D{{"_id", bson.D{{"_id", "null"}}}, {"total_count", bson.D{{"$sum", 1}}}, {"data", bson.D{{"$push", "$$ROOT"}}}}}}
+		groupStage := bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: bson.D{{Key: "_id", Value: "null"}}}, {Key: "total_count", Value: bson.D{{Key: "$sum", Value: 1}}}, {Key: "data", Value: bson.D{{Key: "$push", Value: "$$ROOT"}}}}}}
 		projectStage := bson.D{
 			{
 				Key: "$project", Value: bson.D{
-					// 0 means dont send this feild to frontEnd and 1 means send to frontend
+					// 0 means dont send this field in response and 1 means send in response
 					{Key: "_id", Value: 0},
 					{Key: "total_count", Value: 1},
 					// $slice => specifies the number of elements to return to array fields by using startIndex and End index
@@ -81,8 +80,22 @@ func CreateFood() gin.HandlerFunc {
 		var food models.Food
 		var menu models.Menu
 		defer cancel()
+
+		// Checking request is from Manager
+		userId := ctx.Param("user_id")
+		var user models.User
+		err := userCollection.FindOne(c, bson.M{"user_id": userId}).Decode(&user)
+		defer cancel()
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if *user.Type != "MANAGER" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Not Authorized"})
+			return
+		}
 		// Get the request body into struct Food
-		err := ctx.BindJSON(&food)
+		err = ctx.BindJSON(&food)
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -98,7 +111,7 @@ func CreateFood() gin.HandlerFunc {
 		defer cancel()
 
 		if err != nil {
-			msg := fmt.Sprintf("Menu not found")
+			msg := "Menu not found"
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 			return
 		}
@@ -115,7 +128,7 @@ func CreateFood() gin.HandlerFunc {
 		result, insertError := foodCollection.InsertOne(c, food)
 
 		if insertError != nil {
-			msg := fmt.Sprintf("Food item was not inserted")
+			msg := "Food item was not inserted"
 			ctx.JSON(http.StatusInternalServerError, gin.H{"err": msg})
 			return
 		}
@@ -133,6 +146,20 @@ func UpdateFood() gin.HandlerFunc {
 		var menu models.Menu
 		var food models.Food
 
+		// Checking request is from Manager
+		userId := ctx.Param("user_id")
+		var user models.User
+		err := userCollection.FindOne(c, bson.M{"user_id": userId}).Decode(&user)
+		defer cancel()
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if *user.Type != "MANAGER" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Not Authorized"})
+			return
+		}
+
 		foodId := ctx.Param("food_id")
 
 		if err := ctx.BindJSON(&food); err != nil {
@@ -142,15 +169,15 @@ func UpdateFood() gin.HandlerFunc {
 		var updateObj primitive.D
 
 		if food.Name != nil {
-			updateObj = append(updateObj, bson.E{"name", food.Name})
+			updateObj = append(updateObj, bson.E{Key: "name", Value: food.Name})
 		}
 
 		if food.Price != nil {
-			updateObj = append(updateObj, bson.E{"price", food.Price})
+			updateObj = append(updateObj, bson.E{Key: "price", Value: food.Price})
 		}
 
 		if food.Food_image != nil {
-			updateObj = append(updateObj, bson.E{"food_image", food.Food_image})
+			updateObj = append(updateObj, bson.E{Key: "food_image", Value: food.Food_image})
 		}
 
 		if food.Menu_id != nil {
@@ -158,15 +185,15 @@ func UpdateFood() gin.HandlerFunc {
 			err := menuCollection.FindOne(ctx, bson.M{"menu_id": food.Menu_id}).Decode(&menu)
 			defer cancel()
 			if err != nil {
-				msg := fmt.Sprintf("message:Menu was not found")
+				msg := "message:Menu was not found"
 				ctx.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 				return
 			}
-			updateObj = append(updateObj, bson.E{"menu", food.Price})
+			updateObj = append(updateObj, bson.E{Key: "menu", Value: food.Menu_id})
 		}
 
 		food.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
-		updateObj = append(updateObj, bson.E{"updated_at", food.Updated_at})
+		updateObj = append(updateObj, bson.E{Key: "updated_at", Value: food.Updated_at})
 
 		upsert := true
 		filter := bson.M{"food_id": foodId}
@@ -179,18 +206,50 @@ func UpdateFood() gin.HandlerFunc {
 			c,
 			filter,
 			bson.D{
-				{"$set", updateObj},
+				{Key: "$set", Value: updateObj},
 			},
 			&opt,
 		)
 
 		if err != nil {
-			msg := fmt.Sprint("food item update failed")
+			msg := "food item update failed"
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 			return
 		}
 
 		ctx.JSON(http.StatusOK, result)
+	}
+}
+
+func DeleteFood() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		var c, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		// Checking request is from Manager
+		userId := ctx.Param("user_id")
+		var user models.User
+		err := userCollection.FindOne(c, bson.M{"user_id": userId}).Decode(&user)
+		defer cancel()
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if *user.Type != "MANAGER" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Not Authorized"})
+			return
+		}
+
+		foodId := ctx.Param("food_id")
+
+		res, err := foodCollection.DeleteOne(c, bson.M{"food_id": foodId})
+
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		} else {
+			ctx.JSON(http.StatusOK, res)
+		}
 	}
 }
 

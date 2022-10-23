@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -52,7 +51,23 @@ func CreateTable() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var table models.Table
 		c, cancel := context.WithTimeout(context.Background(), 100*time.Second)
-		err := ctx.BindJSON(&table)
+		defer cancel()
+
+		// Checking request is from Manager
+		userId := ctx.Param("user_id")
+		var user models.User
+		err := userCollection.FindOne(c, bson.M{"user_id": userId}).Decode(&user)
+		defer cancel()
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if *user.Type != "MANAGER" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Not Authorized"})
+			return
+		}
+
+		err = ctx.BindJSON(&table)
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -68,7 +83,7 @@ func CreateTable() gin.HandlerFunc {
 		table.Table_id = table.ID.Hex()
 		result, insertError := tableCollection.InsertOne(c, table)
 		if insertError != nil {
-			msg := fmt.Sprintf("Table was not Created")
+			msg := "Table was not Created"
 			ctx.JSON(http.StatusInternalServerError, gin.H{"err": msg})
 			return
 		}
@@ -82,7 +97,21 @@ func UpdateTable() gin.HandlerFunc {
 		defer cancel()
 		var table models.Table
 
-		err := ctx.BindJSON(&table)
+		// Checking request is from Manager
+		userId := ctx.Param("user_id")
+		var user models.User
+		err := userCollection.FindOne(c, bson.M{"user_id": userId}).Decode(&user)
+		defer cancel()
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if *user.Type != "MANAGER" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Not Authorized"})
+			return
+		}
+
+		err = ctx.BindJSON(&table)
 
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -95,10 +124,10 @@ func UpdateTable() gin.HandlerFunc {
 		var updateObj primitive.D
 
 		if table.Number_of_guests != nil {
-			updateObj = append(updateObj, bson.E{"number_of_guests", table.Number_of_guests})
+			updateObj = append(updateObj, bson.E{Key: "number_of_guests", Value: table.Number_of_guests})
 		}
 		if table.Table_number != nil {
-			updateObj = append(updateObj, bson.E{"table_number", table.Table_number})
+			updateObj = append(updateObj, bson.E{Key: "table_number", Value: table.Table_number})
 		}
 		table.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 		upsert := true
@@ -110,7 +139,7 @@ func UpdateTable() gin.HandlerFunc {
 			c,
 			filter,
 			bson.D{
-				{"$set", updateObj},
+				{Key: "$set", Value: updateObj},
 			},
 			&opt,
 		)
@@ -120,5 +149,37 @@ func UpdateTable() gin.HandlerFunc {
 		}
 		defer cancel()
 		ctx.JSON(http.StatusOK, result)
+	}
+}
+
+func DeleteTable() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		var c, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		// Checking request is from Manager
+		userId := ctx.Param("user_id")
+		var user models.User
+		err := userCollection.FindOne(c, bson.M{"user_id": userId}).Decode(&user)
+		defer cancel()
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if *user.Type != "MANAGER" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Not Authorized"})
+			return
+		}
+
+		tableId := ctx.Param("table_id")
+
+		res, err := tableCollection.DeleteOne(c, bson.M{"table_id": tableId})
+
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		} else {
+			ctx.JSON(http.StatusOK, res)
+		}
 	}
 }

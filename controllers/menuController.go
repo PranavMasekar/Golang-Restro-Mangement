@@ -48,10 +48,11 @@ func GetMenu() gin.HandlerFunc {
 		err := foodCollection.FindOne(c, bson.M{"menu_id": menuId}).Decode(&menu)
 		defer cancel()
 		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "errror occured while fetching Menu"})
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		} else {
+			ctx.JSON(http.StatusOK, menu)
 		}
-
-		ctx.JSON(http.StatusOK, menu)
 	}
 }
 func CreateMenu() gin.HandlerFunc {
@@ -59,7 +60,22 @@ func CreateMenu() gin.HandlerFunc {
 		var menu models.Menu
 		c, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
-		err := ctx.BindJSON(&menu)
+
+		// Checking request is from Manager
+		userId := ctx.Param("user_id")
+		var user models.User
+		err := userCollection.FindOne(c, bson.M{"user_id": userId}).Decode(&user)
+		defer cancel()
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if *user.Type != "MANAGER" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Not Authorized"})
+			return
+		}
+
+		err = ctx.BindJSON(&menu)
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -99,7 +115,22 @@ func UpdateMenu() gin.HandlerFunc {
 		c, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 		var menu models.Menu
 		defer cancel()
-		err := ctx.BindJSON(&menu)
+
+		// Checking request is from Manager
+		userId := ctx.Param("user_id")
+		var user models.User
+		err := userCollection.FindOne(c, bson.M{"user_id": userId}).Decode(&user)
+		defer cancel()
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if *user.Type != "MANAGER" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Not Authorized"})
+			return
+		}
+
+		err = ctx.BindJSON(&menu)
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -152,5 +183,37 @@ func UpdateMenu() gin.HandlerFunc {
 			ctx.JSON(http.StatusOK, result)
 		}
 
+	}
+}
+
+func DeleteMenu() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		var c, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		// Checking request is from Manager
+		userId := ctx.Param("user_id")
+		var user models.User
+		err := userCollection.FindOne(c, bson.M{"user_id": userId}).Decode(&user)
+		defer cancel()
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if *user.Type != "MANAGER" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Not Authorized"})
+			return
+		}
+
+		menuId := ctx.Param("menu_id")
+
+		res, err := menuCollection.DeleteOne(c, bson.M{"menu_id": menuId})
+
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		} else {
+			ctx.JSON(http.StatusOK, res)
+		}
 	}
 }

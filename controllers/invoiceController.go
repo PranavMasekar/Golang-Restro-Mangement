@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -16,16 +15,16 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type InvoiceViewFormat struct {
-	Invoice_id       string
-	Payment_method   string
-	order_id         string
-	Payment_status   *string
-	Payment_due      interface{}
-	Table_number     interface{}
-	Payment_due_date time.Time
-	Order_details    interface{}
-}
+// type InvoiceViewFormat struct {
+// 	Invoice_id       string
+// 	Payment_method   string
+// 	order_id         string
+// 	Payment_status   *string
+// 	Payment_due      interface{}
+// 	Table_number     interface{}
+// 	Payment_due_date time.Time
+// 	Order_details    interface{}
+// }
 
 var invoiceCollection *mongo.Collection = database.OpenCollection(database.Client, "invoice")
 
@@ -59,24 +58,24 @@ func GetInvoice() gin.HandlerFunc {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "errror occured while fetching Invoice item"})
 		}
 
-		var invoiceView InvoiceViewFormat
+		// var invoiceView InvoiceViewFormat
 
-		allOrderItems, err := ItemsByOrder(invoice.Order_id)
-		invoiceView.order_id = invoice.Order_id
-		invoiceView.Payment_due_date = invoice.Payment_due_date
+		// allOrderItems, err := ItemsByOrder(invoice.Order_id)
+		// invoiceView.order_id = invoice.Order_id
+		// invoiceView.Payment_due_date = invoice.Payment_due_date
 
-		invoiceView.Payment_method = "null"
-		if invoice.Payment_method != nil {
-			invoiceView.Payment_method = *invoice.Payment_method
-		}
+		// invoiceView.Payment_method = "null"
+		// if invoice.Payment_method != nil {
+		// 	invoiceView.Payment_method = *invoice.Payment_method
+		// }
 
-		invoiceView.Invoice_id = invoice.Invoice_id
-		invoiceView.Payment_status = *&invoice.Payment_status
-		invoiceView.Payment_due = allOrderItems[0]["payment_due"]
-		invoiceView.Table_number = allOrderItems[0]["table_number"]
-		invoiceView.Order_details = allOrderItems[0]["order_items"]
+		// invoiceView.Invoice_id = invoice.Invoice_id
+		// invoiceView.Payment_status = invoice.Payment_status
+		// invoiceView.Payment_due = allOrderItems[0]["payment_due"]
+		// invoiceView.Table_number = allOrderItems[0]["table_number"]
+		// invoiceView.Order_details = allOrderItems[0]["order_items"]
 
-		ctx.JSON(http.StatusOK, invoiceView)
+		ctx.JSON(http.StatusOK, invoice)
 	}
 }
 
@@ -84,7 +83,22 @@ func CreateInvoice() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		c, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 		var invoice models.Invoice
-		err := ctx.BindJSON(&invoice)
+
+		// Checking request is from Manager
+		userId := ctx.Param("user_id")
+		var user models.User
+		err := userCollection.FindOne(c, bson.M{"user_id": userId}).Decode(&user)
+		defer cancel()
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if *user.Type != "MANAGER" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Not Authorized"})
+			return
+		}
+
+		err = ctx.BindJSON(&invoice)
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		}
@@ -115,7 +129,7 @@ func CreateInvoice() gin.HandlerFunc {
 
 		result, insertErr := invoiceCollection.InsertOne(c, invoice)
 		if insertErr != nil {
-			msg := fmt.Sprintf("invoice item was not created")
+			msg := "invoice item was not created"
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 			return
 		}
@@ -129,10 +143,24 @@ func UpdateInvoice() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		c, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 
+		// Checking request is from Manager
+		userId := ctx.Param("user_id")
+		var user models.User
+		err := userCollection.FindOne(c, bson.M{"user_id": userId}).Decode(&user)
+		defer cancel()
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if *user.Type != "MANAGER" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Not Authorized"})
+			return
+		}
+
 		var invoice models.Invoice
 		invoiceid := ctx.Param("invoice_id")
 
-		err := ctx.BindJSON(&invoice)
+		err = ctx.BindJSON(&invoice)
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		}
@@ -141,15 +169,15 @@ func UpdateInvoice() gin.HandlerFunc {
 		var updateObj primitive.D
 
 		if invoice.Payment_method != nil {
-			updateObj = append(updateObj, bson.E{"payment_method", invoice.Payment_method})
+			updateObj = append(updateObj, bson.E{Key: "payment_method", Value: invoice.Payment_method})
 		}
 
 		if invoice.Payment_status != nil {
-			updateObj = append(updateObj, bson.E{"payment_status", invoice.Payment_status})
+			updateObj = append(updateObj, bson.E{Key: "payment_status", Value: invoice.Payment_status})
 		}
 
 		invoice.Updated_at, _ = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
-		updateObj = append(updateObj, bson.E{"updated_at", invoice.Updated_at})
+		updateObj = append(updateObj, bson.E{Key: "updated_at", Value: invoice.Updated_at})
 
 		upsert := true
 		opt := options.UpdateOptions{
@@ -165,18 +193,49 @@ func UpdateInvoice() gin.HandlerFunc {
 			c,
 			filter,
 			bson.D{
-
-				{"$set", updateObj},
+				{Key: "$set", Value: updateObj},
 			},
 			&opt,
 		)
+		defer cancel()
 		if err != nil {
-			msg := fmt.Sprintf("invoice item update failed")
+			msg := "invoice item update failed"
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": msg})
 			return
 		}
 
-		defer cancel()
 		ctx.JSON(http.StatusOK, result)
+	}
+}
+
+func DeleteInvoice() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		var c, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		// Checking request is from Manager
+		userId := ctx.Param("user_id")
+		var user models.User
+		err := userCollection.FindOne(c, bson.M{"user_id": userId}).Decode(&user)
+		defer cancel()
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if *user.Type != "MANAGER" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Not Authorized"})
+			return
+		}
+
+		invoiceId := ctx.Param("invoice_id")
+
+		res, err := invoiceCollection.DeleteOne(c, bson.M{"invoice_id": invoiceId})
+
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		} else {
+			ctx.JSON(http.StatusOK, res)
+		}
 	}
 }

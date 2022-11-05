@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"time"
 
 	"github.com/PranavMasekar/restaurant-management/database"
 	"github.com/PranavMasekar/restaurant-management/middleware"
@@ -25,9 +26,10 @@ func main() {
 
 	router.Use(cors.New(cors.Config{
 		AllowAllOrigins:  true,
-		AllowMethods:     []string{"POST", "PUT", "DELETE", "HEAD"},
 		AllowCredentials: true,
+		AllowMethods:     []string{"POST", "PUT", "DELETE", "HEAD"},
 		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type"},
+		MaxAge:           12 * time.Hour,
 	}))
 
 	routes.UserRoutes(router)

@@ -134,6 +134,12 @@ func SignUp() gin.HandlerFunc {
 	}
 }
 
+func handlerOption() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		ctx.JSON(http.StatusOK, "OK")
+	}
+}
+
 func Login() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var c, cancel = context.WithTimeout(context.Background(), 100*time.Second)

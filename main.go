@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net/http"
 	"os"
 
 	"github.com/PranavMasekar/restaurant-management/database"
@@ -25,10 +26,14 @@ func main() {
 
 	router.Use(cors.New(cors.Config{
 		AllowAllOrigins:  true,
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"},
+		AllowMethods:     []string{"POST", "PUT", "DELETE", "HEAD"},
 		AllowCredentials: true,
-		AllowHeaders:     []string{"Content-Type", "Bearer", "Bearer ", "content-type", "Origin", "Accept"},
+		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type"},
 	}))
+
+	router.OPTIONS("/", func(c *gin.Context) {
+		c.JSON(http.StatusOK, "OK")
+	})
 
 	routes.UserRoutes(router)
 	router.Use(middleware.Authentication())

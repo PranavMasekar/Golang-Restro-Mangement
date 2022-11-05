@@ -6,6 +6,7 @@ import (
 	"github.com/PranavMasekar/restaurant-management/database"
 	"github.com/PranavMasekar/restaurant-management/middleware"
 	"github.com/PranavMasekar/restaurant-management/routes"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -21,6 +22,13 @@ func main() {
 
 	router := gin.New()
 	router.Use(gin.Logger())
+
+	router.Use(cors.New(cors.Config{
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{"POST", "PUT", "PATCH", "DELETE", "GET"},
+		AllowHeaders: []string{"Content-Type,access-control-allow-origin, access-control-allow-headers"},
+	}))
+
 	routes.UserRoutes(router)
 	router.Use(middleware.Authentication())
 

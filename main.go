@@ -1,7 +1,6 @@
 package main
 
 import (
-	"net/http"
 	"os"
 
 	"github.com/PranavMasekar/restaurant-management/database"
@@ -30,10 +29,6 @@ func main() {
 		AllowCredentials: true,
 		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type"},
 	}))
-
-	router.OPTIONS("/", func(c *gin.Context) {
-		c.JSON(http.StatusOK, "OK")
-	})
 
 	routes.UserRoutes(router)
 	router.Use(middleware.Authentication())

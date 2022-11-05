@@ -24,9 +24,10 @@ func main() {
 	router.Use(gin.Logger())
 
 	router.Use(cors.New(cors.Config{
-		AllowAllOrigins: true,
-		AllowMethods:    []string{"GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"},
-		AllowHeaders:    []string{"Content-Type,access-control-allow-origin, access-control-allow-headers"},
+		AllowAllOrigins:  true,
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"},
+		AllowCredentials: true,
+		AllowHeaders:     []string{"Content-Type", "Bearer", "Bearer ", "content-type", "Origin", "Accept"},
 	}))
 
 	routes.UserRoutes(router)

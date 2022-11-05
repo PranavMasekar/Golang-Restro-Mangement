@@ -4,7 +4,6 @@ import (
 	"os"
 
 	"github.com/PranavMasekar/restaurant-management/database"
-	"github.com/PranavMasekar/restaurant-management/middleware"
 	"github.com/PranavMasekar/restaurant-management/routes"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -31,7 +30,7 @@ func main() {
 	}))
 
 	routes.UserRoutes(router)
-	router.Use(middleware.Authentication())
+	// router.Use(middleware.Authentication())
 
 	routes.FoodRoutes(router)
 	routes.MenuRoutes(router)

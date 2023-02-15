@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: go-restro-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: go-restro
+  template:
+    metadata:
+      labels:
+        app: go-restro
+    spec:
+      containers:
+      - name: go-restro
+        image: pranav18vk/go-restro:v3.0.0
+        ports:
+            - containerPort: 8000
+            

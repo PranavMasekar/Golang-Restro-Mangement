@@ -1,0 +1,12 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+metadata:
+  name: restro
+  region: ap-south-1
+nodeGroups:
+  - name: MyNodeGroup
+    instanceType: t2.micro
+    desiredCapacity: 2
+    ssh:
+      allow: true
+# eksctl create cluster -f variables.yaml
